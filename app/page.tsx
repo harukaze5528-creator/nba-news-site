@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 type Article = {
   title: string;
   description: string;
@@ -6,6 +8,7 @@ type Article = {
   publishedAt: string;
   source: { name: string };
   titleJa?: string;
+  category?: string;
 };
 
 async function translateText(text: string): Promise<string> {
@@ -20,18 +23,41 @@ async function translateText(text: string): Promise<string> {
   }
 }
 
+async function fetchArticles(q: string, category: string, apiKey: string): Promise<Article[]> {
+  const res = await fetch(
+    `https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&language=en&sortBy=publishedAt&pageSize=5&apiKey=${apiKey}`,
+    { cache: "no-store" }
+  );
+  const data = await res.json();
+  const articles: Article[] = data.articles ?? [];
+
+  return articles.map((a) => ({ ...a, category }));
+}
+
 async function getArticles(): Promise<Article[]> {
   try {
     const apiKey = process.env.NEWS_API_KEY ?? "cd14c7017b66444f80312d97685e5cc1";
-    const res = await fetch(
-      `https://newsapi.org/v2/everything?q=NBA&language=en&sortBy=publishedAt&pageSize=12&apiKey=${apiKey}`,
-      { cache: "no-store" }
-    );
-    const data = await res.json();
-    const articles: Article[] = data.articles ?? [];
-    const translated = await Promise.all(articles.map((a) => translateText(a.title)));
-    articles.forEach((a, i) => { a.titleJa = translated[i]; });
-    return articles;
+
+    const [trades, quotes, teams, draft] = await Promise.all([
+      fetchArticles("NBA trade rumors", "トレード情報", apiKey),
+      fetchArticles("NBA player says", "選手の発言", apiKey),
+      fetchArticles("NBA team news", "チームニュース", apiKey),
+      fetchArticles("NBA draft", "ドラフト注目株", apiKey),
+    ]);
+
+    const articles = [...trades, ...quotes, ...teams, ...draft];
+
+    const seen = new Set<string>();
+    const unique = articles.filter((a) => {
+      if (seen.has(a.url)) return false;
+      seen.add(a.url);
+      return true;
+    });
+
+    const translated = await Promise.all(unique.map((a) => translateText(a.title)));
+    unique.forEach((a, i) => (a.titleJa = translated[i]));
+
+    return unique;
   } catch {
     return [];
   }
@@ -41,69 +67,21 @@ export default async function Home() {
   const articles = await getArticles();
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f0f4f8", color: "#111", fontFamily: "'Helvetica Neue', sans-serif" }}>
-      <header style={{ background: "linear-gradient(135deg, #003DA5 0%, #C8102E 100%)", boxShadow: "0 2px 12px rgba(0,0,0,0.3)" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", letterSpacing: -1, lineHeight: 1 }}>🏀 NBA速報</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", letterSpacing: 3, marginTop: 4 }}>PAINT AREA</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", letterSpacing: 1 }}>
-              {new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "long" })}
-            </div>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>最新NBAニュース</div>
-          </div>
-        </div>
-        <div style={{ background: "rgba(0,0,0,0.25)", padding: "0 24px" }}>
-          <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex" }}>
-            {["トップ", "試合結果", "チーム", "選手", "プレイオフ"].map((item) => (
-              <div key={item} style={{ padding: "10px 20px", color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: 600, cursor: "pointer", borderBottom: item === "トップ" ? "3px solid #fff" : "3px solid transparent" }}>
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
-      </header>
+    <div style={{ padding: 40 }}>
+      <h1>NBAニュース</h1>
 
-      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-          <div style={{ width: 4, height: 24, background: "#C8102E", borderRadius: 2 }} />
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#003DA5", letterSpacing: 1 }}>最新ニュース</h2>
-          <div style={{ fontSize: 11, color: "#999", marginLeft: 8 }}>自動翻訳</div>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 20 }}>
-          {articles.map((article, i) => (
-            <a key={i} href={"/article/" + i} style={{ textDecoration: "none" }}>
-              <div style={{ background: "#fff", borderRadius: 8, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #e8e8e8", height: "100%" }}>
-                {article.urlToImage && (
-                  <div style={{ position: "relative" }}>
-                    <img src={article.urlToImage} alt="" style={{ width: "100%", height: 180, objectFit: "cover", display: "block" }} />
-                    <div style={{ position: "absolute", top: 10, left: 10, background: "#C8102E", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: 2, padding: "3px 8px", borderRadius: 2 }}>NBA</div>
-                  </div>
-                )}
-                <div style={{ padding: "16px 20px 20px" }}>
-                  <div style={{ fontSize: 10, color: "#003DA5", fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>
-                    {article.source.name} · {new Date(article.publishedAt).toLocaleDateString("ja-JP")}
-                  </div>
-                  <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 6px", color: "#111", lineHeight: 1.5 }}>
-                    {article.titleJa}
-                  </h3>
-                  <p style={{ fontSize: 11, color: "#aaa", margin: "0 0 12px", fontStyle: "italic", lineHeight: 1.4 }}>
-                    {article.title}
-                  </p>
-                  <div style={{ fontSize: 11, color: "#003DA5", fontWeight: 600 }}>続きを読む →</div>
-                </div>
-              </div>
-            </a>
-          ))}
-        </div>
-      </main>
-
-      <footer style={{ background: "#003DA5", color: "rgba(255,255,255,0.6)", textAlign: "center", padding: "24px", fontSize: 11, marginTop: 48 }}>
-        NBA速報 - Paint Area · 非公式NBAニュースまとめサイト · {new Date().getFullYear()}
-      </footer>
+      {articles.map((article, i) => (
+        <Link
+          key={i}
+          href={`/articles/${encodeURIComponent(article.url)}`}
+          style={{ display: "block", marginBottom: 20 }}
+        >
+          <div style={{ border: "1px solid #ccc", padding: 10 }}>
+            <h3>{article.titleJa}</h3>
+            <p>{article.title}</p>
+          </div>
+        </Link>
+      ))}
     </div>
   );
 }
