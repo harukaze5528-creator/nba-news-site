@@ -9,8 +9,13 @@ type Article = {
 
 async function getArticles(): Promise<Article[]> {
   try {
-    const res = await fetch("http://localhost:3000/api/news", { cache: "no-store" });
-    return res.json();
+    const apiKey = process.env.NEWS_API_KEY ?? "cd14c7017b66444f80312d97685e5cc1";
+    const res = await fetch(
+      `https://newsapi.org/v2/everything?q=NBA&language=en&sortBy=publishedAt&pageSize=10&apiKey=${apiKey}`,
+      { cache: "no-store" }
+    );
+    const data = await res.json();
+    return data.articles ?? [];
   } catch {
     return [];
   }
@@ -21,7 +26,6 @@ export default async function Home() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0f", color: "#f0f0f0", fontFamily: "Georgia, serif" }}>
-      {/* ヘッダー */}
       <header style={{ background: "#111", borderBottom: "1px solid #222", padding: "20px 32px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
@@ -36,7 +40,6 @@ export default async function Home() {
         </div>
       </header>
 
-      {/* ニュース一覧 */}
       <main style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px" }}>
         {articles.length === 0 && (
           <p style={{ color: "#555", fontFamily: "monospace", textAlign: "center", paddingTop: 80 }}>
