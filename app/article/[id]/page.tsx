@@ -23,11 +23,17 @@ async function translateText(text: string): Promise<string> {
 
 async function fetchArticles(q: string, category: string, apiKey: string): Promise<Article[]> {
   const res = await fetch(
-    `https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&language=en&sortBy=publishedAt&pageSize=4&apiKey=${apiKey}`,
+    `https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&language=en&sortBy=publishedAt&pageSize=5&apiKey=${apiKey}`,
     { cache: "no-store" }
   );
   const data = await res.json();
-  return (data.articles ?? []).map((a: Article) => ({ ...a, category }));
+  const articles: Article[] = data.articles ?? [];
+  // NBA以外の記事を除外
+  const nbaOnly = articles.filter((a) => {
+    const text = (a.title + " " + (a.description ?? "")).toLowerCase();
+    return text.includes("nba") || text.includes("basketball") || text.includes("lakers") || text.includes("celtics") || text.includes("warriors") || text.includes("knicks") || text.includes("nuggets") || text.includes("heat") || text.includes("bucks") || text.includes("draft");
+  });
+  return nbaOnly.map((a) => ({ ...a, category }));
 }
 
 async function getArticles(): Promise<Article[]> {
@@ -35,10 +41,10 @@ async function getArticles(): Promise<Article[]> {
     const apiKey = process.env.NEWS_API_KEY ?? "cd14c7017b66444f80312d97685e5cc1";
 
     const [trades, quotes, teams, draft] = await Promise.all([
-      fetchArticles("NBA trade rumors 2026", "トレード情報", apiKey),
-      fetchArticles("NBA player statement interview 2026", "選手の発言", apiKey),
-      fetchArticles("NBA team news 2026", "チームニュース", apiKey),
-      fetchArticles("NBA draft prospect college basketball 2026", "ドラフト情報", apiKey),
+      fetchArticles("NBA trade rumors", "トレード情報", apiKey),
+      fetchArticles("NBA player says statement", "選手の発言", apiKey),
+      fetchArticles("NBA team news", "チームニュース", apiKey),
+      fetchArticles("NBA draft 2026 prospect top pick", "ドラフト注目株", apiKey),
     ]);
 
     const articles = [...trades, ...quotes, ...teams, ...draft];
@@ -64,7 +70,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   "トレード情報": "#e67e22",
   "選手の発言": "#27ae60",
   "チームニュース": "#003DA5",
-  "ドラフト情報": "#8e44ad",
+  "ドラフト注目株": "#8e44ad",
 };
 
 export default async function Home() {
@@ -87,7 +93,7 @@ export default async function Home() {
         </div>
         <div style={{ background: "rgba(0,0,0,0.25)", padding: "0 24px" }}>
           <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex" }}>
-            {["トップ", "トレード情報", "選手の発言", "チームニュース", "ドラフト情報"].map((item) => (
+            {["トップ", "トレード情報", "選手の発言", "チームニュース", "ドラフト注目株"].map((item) => (
               <div key={item} style={{ padding: "10px 20px", color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: 600, cursor: "pointer", borderBottom: item === "トップ" ? "3px solid #fff" : "3px solid transparent", whiteSpace: "nowrap" }}>
                 {item}
               </div>
