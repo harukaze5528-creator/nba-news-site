@@ -1,12 +1,14 @@
 type Article = {
   title: string;
   description: string;
+  content: string;
   url: string;
   urlToImage: string;
   publishedAt: string;
   source: { name: string };
   titleJa?: string;
   descriptionJa?: string;
+  contentJa?: string;
 };
 
 async function translateText(text: string): Promise<string> {
@@ -32,8 +34,17 @@ async function getArticle(id: string): Promise<Article | null> {
     const articles: Article[] = data.articles ?? [];
     const article = articles[parseInt(id)];
     if (!article) return null;
+
     article.titleJa = await translateText(article.title);
-    article.descriptionJa = article.description ? await translateText(article.description) : "";
+
+    // contentからゴミを除去して翻訳
+    const rawContent = article.content ?? article.description ?? "";
+    const cleanContent = rawContent.replace(/\[\+\d+ chars\]/g, "").trim();
+    const fullText = article.description
+      ? article.description + " " + cleanContent
+      : cleanContent;
+
+    article.descriptionJa = fullText ? await translateText(fullText) : "";
     return article;
   } catch {
     return null;
@@ -54,7 +65,6 @@ export default async function ArticlePage({ params }: { params: Promise<{ id: st
 
   return (
     <div style={{ minHeight: "100vh", background: "#f0f4f8", fontFamily: "'Helvetica Neue', sans-serif" }}>
-      {/* ヘッダー */}
       <header style={{ background: "linear-gradient(135deg, #003DA5 0%, #C8102E 100%)", boxShadow: "0 2px 12px rgba(0,0,0,0.3)" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <a href="/" style={{ textDecoration: "none" }}>
@@ -67,7 +77,6 @@ export default async function ArticlePage({ params }: { params: Promise<{ id: st
         </div>
       </header>
 
-      {/* 記事コンテンツ */}
       <main style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px" }}>
         <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", boxShadow: "0 4px 16px rgba(0,0,0,0.1)" }}>
           {article.urlToImage && (
@@ -84,7 +93,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ id: st
               {article.title}
             </p>
             <div style={{ width: "100%", height: 2, background: "linear-gradient(90deg, #003DA5, #C8102E)", marginBottom: 24, borderRadius: 1 }} />
-            <p style={{ fontSize: 16, color: "#444", lineHeight: 1.9, margin: "0 0 32px" }}>
+            <p style={{ fontSize: 16, color: "#444", lineHeight: 2, margin: "0 0 32px", whiteSpace: "pre-wrap" }}>
               {article.descriptionJa}
             </p>
             <a href={article.url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", background: "linear-gradient(135deg, #003DA5, #C8102E)", color: "#fff", padding: "14px 28px", borderRadius: 6, textDecoration: "none", fontWeight: 700, fontSize: 14 }}>

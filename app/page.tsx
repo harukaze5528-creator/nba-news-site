@@ -29,8 +29,6 @@ async function getArticles(): Promise<Article[]> {
     );
     const data = await res.json();
     const articles: Article[] = data.articles ?? [];
-
-    // タイトルを並行して翻訳
     const translated = await Promise.all(articles.map((a) => translateText(a.title)));
     articles.forEach((a, i) => { a.titleJa = translated[i]; });
     return articles;
@@ -77,7 +75,7 @@ export default async function Home() {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 20 }}>
           {articles.map((article, i) => (
-            <a key={i} href={article.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+            <a key={i} href={"/article/" + i} style={{ textDecoration: "none" }}>
               <div style={{ background: "#fff", borderRadius: 8, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #e8e8e8", height: "100%" }}>
                 {article.urlToImage && (
                   <div style={{ position: "relative" }}>
